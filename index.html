@@ -258,6 +258,9 @@ const HEALERS = new Set(["Aatrox","Soraka","Vladimir","Sylas","DrMundo","Swain",
 /* Champions à burst élevé (déclenche Zhonya/GA/Edge of Night) */
 const BURSTERS = new Set(["Zed","Talon","Khazix","Rengar","Naafiri","Qiyana","Leblanc","Syndra","Veigar","Annie","Fizz","Akali","Evelynn","Diana","Kassadin","Nocturne","Belveth","Briar","Shaco"]);
 
+/* Mages "control / DoT" : dégâts continus sans combo burst, Luden's ne leur va pas */
+const CONTROL_MAGES = new Set(["Malzahar","Cassiopeia","Swain","Anivia","Karthus","Vladimir","Ryze","Brand"]);
+
 /* Données d'usage réel patch 26.13 (agrégat de winrate/tier sur parties classées) */
 const ITEM_META = {
   3026: {tier:"S", wr:60.6},   // Ange gardien
@@ -270,7 +273,72 @@ const ITEM_META = {
   3158: {tier:"D", wr:50.4},   // Bottes ioniennes de la Lucidité
   3143: {tier:"D", wr:50.6},   // Présage de Randuin
   3047: {tier:"D"},            // Jambières de Plaques d'acier (populaires mais en méforme)
-  3100: {tier:"F", wr:48.4}    // Lame du roi déchu — Lich Bane
+  3100: {tier:"F", wr:48.4},   // Lich Bane
+  3118: {tier:"S"}             // Malfaisance (Malignance) — cœur mage tendance actuelle
+};
+
+/* Builds vérifiés champion par champion sur données réelles patch 26.13 (pas une généralisation de classe) */
+const CHAMPION_OVERRIDES = {
+  Yasuo: {
+    core:[I(6673,"Arc-bouclier immortel (Immortal Shieldbow)","Bouclier anti-burst, cœur crit standard sur Yasuo ce patch"),
+          I(6333,"Danse de la mort","Étale les dégâts reçus dans la durée, indispensable en teamfight prolongé"),
+          I(3031,"Lame d'infini","Pic de dégâts critiques une fois les 2 premiers objets terminés")],
+    boots:[I(3006,"Jambières du Berserker","Vitesse d'attaque, choix boots standard sur Yasuo")]
+  },
+  Ahri: {
+    core:[I(3118,"Malfaisance (Malignance)","AP + mana + haste d'ultime — remplace Luden's dans la méta actuelle sur Ahri"),
+          I(4645,"Flamme d'ombre","Bonus de pénétration et de dégâts sur les cibles à faible vie"),
+          I(3089,"Coiffe de Rabadon","Multiplicateur d'AP final")],
+    boots:[I(3020,"Chaussures du Sorcier","Pénétration magique standard")]
+  },
+  Naafiri: {
+    core:[I(6699,"Cyclosabre voltaïque (Voltaic Cyclosword)","Cœur lethality du patch, mobilité + dégâts on-hit énergisés"),
+          I(6696,"Arc Axiome (Axiom Arc)","Réduction de cooldown d'ultime à chaque takedown, snowball rapide"),
+          I(6695,"Rancune de Serylda","Pénétration d'armure + ralentissement pour ne pas laisser échapper la cible")],
+    boots:[I(3158,"Bottes ioniennes de la Lucidité","Cooldown réduit, standard sur les assassins lethality")]
+  },
+  Locke: {
+    core:[I(3100,"Lich Bane","Signature de Locke — burst via auto renforcée après un sort"),
+          I(4645,"Flamme d'ombre","Bonus de dégâts sur les cibles à faible vie"),
+          I(3089,"Coiffe de Rabadon","Multiplicateur d'AP final")],
+    boots:[I(3020,"Chaussures du Sorcier","Pénétration magique standard")]
+  },
+  Viktor: {
+    core:[I(2503,"Torche noirfeu (Blackfire Torch)","Brûlure + scaling AP, cœur signature de Viktor"),
+          I(3152,"Ceinture-fusée hextech (Hextech Rocketbelt)","Dash + burst pour initier ou fuir"),
+          I(3157,"Sablier de Zhonya","Survie pour laisser ton E/ult faire effet")],
+    boots:[I(3020,"Chaussures du Sorcier","Pénétration magique standard")]
+  },
+  Kayn: {
+    core:[I(6697,"Hubris","Scale à chaque takedown, cœur assassin du patch"),
+          I(6699,"Cyclosabre voltaïque (Voltaic Cyclosword)","Mobilité et dégâts on-hit énergisés"),
+          I(3814,"Tranche-nuit (Edge of Night)","Bouclier anti-sort pour engager en sécurité")],
+    boots:[I(3158,"Bottes ioniennes de la Lucidité","Cooldown réduit pour ta transformation et tes dashs")]
+  },
+  Warwick: {
+    core:[I(6631,"Brise-lignes (Stridebreaker)","Dash + zone, cœur de duelliste on-hit sur Warwick"),
+          I(3153,"Lame du roi déchu (Blade of the Ruined King)","Dégâts en % PV + vol de vie, synergie parfaite avec son ult"),
+          I(3143,"Présage de Randuin","Réduction de crit et d'AS, très fort en 1v1")],
+    boots:[I(3047,"Jambières de Plaques d'acier","Standard sur Warwick malgré la méforme générale de l'objet")]
+  },
+  MasterYi: {
+    core:[I(6672,"Massacreur de Kraken","Dégâts on-hit, cœur DPS standard"),
+          I(3124,"Lame de rage de Guinsoo","Attaques doubles + AS/AP en stack, synergie unique avec le kit de Yi"),
+          I(3153,"Lame du roi déchu (Blade of the Ruined King)","% PV + vol de vie pour les duels prolongés")],
+    boots:[I(3006,"Jambières du Berserker","Vitesse d'attaque pure")]
+  },
+  Nocturne: {
+    core:[I(6699,"Cyclosabre voltaïque (Voltaic Cyclosword)","Cœur lethality du patch, mobilité + dégâts on-hit"),
+          I(6696,"Arc Axiome (Axiom Arc)","Réduction de cooldown d'ultime, snowball via les kills"),
+          I(3814,"Tranche-nuit (Edge of Night)","Bouclier anti-sort pour plonger en sécurité")],
+    boots:[I(3158,"Bottes ioniennes de la Lucidité","Cooldown réduit, standard sur les assassins lethality")]
+  },
+  Khazix: {
+    core:[I(6699,"Cyclosabre voltaïque (Voltaic Cyclosword)","Cœur lethality du patch, mobilité + dégâts on-hit"),
+          I(6696,"Arc Axiome (Axiom Arc)","Réduction de cooldown d'ultime, isolement plus fréquent"),
+          I(3814,"Tranche-nuit (Edge of Night)","Bouclier anti-sort pour sécuriser l'isolement")],
+    boots:[I(3158,"Bottes ioniennes de la Lucidité","Cooldown réduit, standard sur les assassins lethality")]
+  }
 };
 
 async function boot(){
@@ -498,16 +566,24 @@ function makeBuild(cls,ctx){
   }
 
   else if(cls==="mage"){
-    core=[I(6655,"Compagnon de Luden","Burst + mana, cœur de mage standard"),
-          I(4645,"Flamme d'ombre","Pénétration magique vs cibles peu blindées"),
-          I(3089,"Coiffe de Rabadon","Multiplicateur d'AP final")];
+    const isControl = CONTROL_MAGES.has(me.id);
+    if(isControl){
+      core=[I(6653,"Supplice de Liandry","Brûlure en % PV — le vrai cœur pour un mage à dégâts continus, pas de combo burst"),
+            I(3116,"Sceptre de cristal de Rylai","Ralentissement qui sécurise tes sorts à zone et empêche l'ennemi de sortir de tes dégâts"),
+            I(3157,"Sablier de Zhonya","Survie pour laisser tes dégâts sur la durée faire effet")];
+    }else{
+      core=[I(6655,"Compagnon de Luden","Burst + mana, cœur de mage à combo standard"),
+            I(4645,"Flamme d'ombre","Pénétration magique vs cibles peu blindées"),
+            I(3089,"Coiffe de Rabadon","Multiplicateur d'AP final")];
+    }
     boots=[ pctAd>=60?I(3047,"Jambières de Plaques d'acier","Face à une compo AD"):
             I(3020,"Chaussures du Sorcier","Pénétration magique standard")];
     if(tanks>=2) situ.push(I(3135,"Bâton du Vide","% de pénétration magique obligatoire vs tanks"));
-    if(tanks>=2) situ.push(I(6653,"Supplice de Liandry","Brûlure en % PV vs compos tanky"));
+    if(tanks>=2 && !isControl) situ.push(I(6653,"Supplice de Liandry","Brûlure en % PV vs compos tanky"));
     if(heal) situ.push(I(3165,"Morellonomicon","Blessures graves version AP"));
-    if(burst||pctAd>=60) situ.push(I(3157,"Sablier de Zhonya","Stase contre le burst AD"));
+    if(burst||pctAd>=60){ if(!isControl) situ.push(I(3157,"Sablier de Zhonya","Stase contre le burst AD")); }
     if(pctAp>=60) situ.push(I(3102,"Voile de la banshee","Bouclier anti-sort vs compos AP"));
+    if(isControl) situ.push(I(3089,"Coiffe de Rabadon","Scaling AP pur si la game s'étire"));
     if(!situ.length) situ.push(I(4629,"Force cosmique","Mobilité et DPS soutenu"));
   }
 
@@ -525,7 +601,7 @@ function makeBuild(cls,ctx){
   }
 
   else if(cls==="apassassin"){
-    core=[I(3100,"Lame du roi déchu — Lich Bane","Burst via auto renforcée"),
+    core=[I(3100,"Lich Bane","Burst via auto renforcée"),
           I(4645,"Flamme d'ombre","Pénétration + crit sur cibles basses"),
           I(3089,"Coiffe de Rabadon","Scaling AP maximal")];
     boots=[ pctAd>=60?I(3047,"Jambières de Plaques d'acier","Vs compo AD"):
@@ -576,6 +652,10 @@ function makeBuild(cls,ctx){
     if(heal) situ.push(I(3165,"Morellonomicon","Blessures graves pour ton équipe"));
     situ.push(I(3504,"Encensoir ardent","Buff tes DPS s'ils sont hypercarry"));
   }
+
+  /* Un build vérifié champion par champion prime sur le générique de classe */
+  const override = CHAMPION_OVERRIDES[me.id];
+  if(override){ core = override.core; if(override.boots) boots = override.boots; }
 
   const sb = stateBlock(cls,gameState);
   if(sb.item){
