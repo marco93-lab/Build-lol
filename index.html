@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Forge Hextech — Analyse de compo & build LoL</title>
-<meta name="description" content="Choisis ton champion, entre la compo adverse, obtiens le meilleur build adapté au dernier patch.">
+<title>GUÉRILLA DRAFT — Analyse de compo & build LoL</title>
+<meta name="description" content="Choisis ton champion, entre la compo adverse et ton avance/retard en jeu, obtiens le meilleur build adapté au dernier patch.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -68,6 +68,24 @@ h1 em{font-style:normal;color:var(--gold)}
 .slot.filled .clear{display:block}
 .slot-hint{font-size:12px;color:var(--muted);margin-top:10px}
 .slot-hint b{color:var(--hex);font-weight:500}
+
+/* ---------- état de partie ---------- */
+.state-toggle{display:flex;gap:8px;margin-top:6px}
+.state-btn{
+  flex:1;padding:11px 6px;border-radius:6px;text-align:center;cursor:pointer;
+  background:var(--panel);border:1px solid var(--gold-dim);
+  font-size:12.5px;letter-spacing:.03em;color:var(--muted);
+  transition:border-color .15s,color .15s,background .15s;
+}
+.state-btn b{display:block;font-size:11px;letter-spacing:.14em;text-transform:uppercase;font-weight:500;margin-bottom:2px}
+.state-btn[data-state="behind"].active{border-color:var(--threat);color:var(--ivory);background:rgba(232,64,87,.12)}
+.state-btn[data-state="even"].active{border-color:var(--gold);color:var(--ivory);background:rgba(200,170,110,.12)}
+.state-btn[data-state="ahead"].active{border-color:var(--hex);color:var(--ivory);background:rgba(10,200,185,.12)}
+.state-tip{
+  margin-top:16px;font-size:13px;line-height:1.5;color:var(--ivory);
+  background:rgba(200,170,110,.06);border:1px solid var(--gold-dim);border-radius:6px;padding:12px 14px;
+}
+.state-tip b{color:var(--gold);font-weight:500}
 
 /* ---------- picker ---------- */
 .picker{margin-top:16px;display:none}
@@ -149,7 +167,7 @@ footer a{color:var(--hex);text-decoration:none}
 
 <header>
   <div class="eyebrow">Analyse de draft &middot; Patch en direct</div>
-  <h1>Forge <em>Hextech</em></h1>
+  <h1>GUÉRILLA <em>DRAFT</em></h1>
   <div class="patch" id="patchInfo">Chargement des données Riot…</div>
 </header>
 
@@ -161,6 +179,13 @@ footer a{color:var(--hex);text-decoration:none}
     <div class="slot-label enemy">Compo adverse</div>
     <div class="slots" id="enemySlots"></div>
     <div class="slot-hint">Touche un emplacement puis <b>choisis un champion</b> ci-dessous.</div>
+
+    <div class="slot-label">Où tu en es dans la game</div>
+    <div class="state-toggle" id="stateToggle">
+      <div class="state-btn" data-state="behind"><b>En retard</b>Farm safe</div>
+      <div class="state-btn active" data-state="even"><b>Neutre</b>Standard</div>
+      <div class="state-btn" data-state="ahead"><b>En avance</b>Snowball</div>
+    </div>
   </div>
 
   <div class="picker" id="picker">
@@ -180,6 +205,7 @@ footer a{color:var(--hex);text-decoration:none}
     </div>
 
     <div class="section-title">Build recommandé</div>
+    <div class="state-tip" id="stateTip"></div>
     <div class="item-group"><h3>Cœur de build</h3><div class="items" id="coreItems"></div></div>
     <div class="item-group"><h3>Bottes</h3><div class="items" id="bootItems"></div></div>
     <div class="item-group situ"><h3>Situationnel vs cette compo</h3><div class="items" id="situItems"></div></div>
@@ -225,7 +251,7 @@ async function boot(){
 }
 
 /* ================= UI : SLOTS & PICKER ================= */
-const state = { ally:null, enemies:[null,null,null,null,null], activeSlot:null };
+const state = { ally:null, enemies:[null,null,null,null,null], activeSlot:null, gameState:"even" };
 
 function buildUI(){
   const allyWrap = document.getElementById("allySlots");
@@ -233,6 +259,13 @@ function buildUI(){
   const enWrap = document.getElementById("enemySlots");
   for(let i=0;i<5;i++) enWrap.appendChild(makeSlot("enemy",i,true));
   renderGrid(CHAMP_LIST);
+  document.querySelectorAll(".state-btn").forEach(btn=>{
+    btn.addEventListener("click",()=>{
+      document.querySelectorAll(".state-btn").forEach(b=>b.classList.remove("active"));
+      btn.classList.add("active");
+      state.gameState = btn.dataset.state;
+    });
+  });
   document.getElementById("search").addEventListener("input",e=>{
     const q=e.target.value.trim().toLowerCase();
     renderGrid(CHAMP_LIST.filter(c=>c.name.toLowerCase().includes(q)||c.id.toLowerCase().includes(q)));
@@ -348,10 +381,11 @@ function analyze(){
 
   /* build */
   const cls = classOf(me);
-  const build = makeBuild(cls,{pctAd,pctAp,tanks,heal,burst,cc,me});
+  const build = makeBuild(cls,{pctAd,pctAp,tanks,heal,burst,cc,me,gameState:state.gameState});
   renderItems("coreItems",build.core);
   renderItems("bootItems",build.boots);
   renderItems("situItems",build.situ);
+  document.getElementById("stateTip").innerHTML = build.stateTip;
 
   const r=document.getElementById("results");
   r.style.display="block";
@@ -372,8 +406,32 @@ function classOf(c){
 /* item helper : {id, nom, raison} */
 const I=(id,n,r)=>({id,n,r});
 
+/* Conseils + objet prioritaire selon l'état de la game, par classe */
+const STATE_PLAN = {
+  adc:      { behind:{tip:"Tu es en retard : ne force aucun 1v1, farm sous tourelle et attends ton 2e/3e objet pour reprendre les fights.", item:I(3026,"Ange gardien","Priorise la survie avant le prochain objet de dégâts")},
+              ahead:{tip:"Tu es en avance : appuie ton avantage, prends les objectifs et ferme les fights vite plutôt que de chercher le kill parfait.", item:I(3142,"Lame spectrale de Youmuu","Objet actif pour roam et sécuriser des kills en plus")} },
+  mage:     { behind:{tip:"Tu es en retard : joue en retrait, poke à distance de sécurité et laisse ton équipe engager en premier.", item:I(3157,"Sablier de Zhonya","Assure ta survie plutôt que le pic de dégâts brut")},
+              ahead:{tip:"Tu es en avance : va chercher les picks avec ta priorité de lane, groupe tôt et snowballe les objectifs.", item:I(4629,"Force cosmique","Mobilité pour multiplier les roams pendant que tu domines")} },
+  assassin: { behind:{tip:"Tu es en retard : évite les duels en isolé, attends que ta jungle/mid stabilise avant de re-engager.", item:I(6333,"Danse de la mort","Encaisse mieux les représailles si un pick tourne mal")},
+              ahead:{tip:"Tu es en avance : punis les joueurs isolés, reset ton mana/santé entre les kills et ferme la game.", item:I(6676,"Le Collectionneur","Accélère ton snowball via l'or bonus d'exécution")} },
+  apassassin:{ behind:{tip:"Tu es en retard : reste en retrait des combos adverses, joue safe jusqu'à ton spike de niveau 6.", item:I(3157,"Sablier de Zhonya","Stase pour éviter un pick qui plomberait la partie")},
+              ahead:{tip:"Tu es en avance : cherche les roams, ton burst est déjà suffisant pour one-shot les cibles prioritaires.", item:I(4629,"Force cosmique","Mobilité pour enchaîner les kills pendant ton pic de puissance")} },
+  fighter:  { behind:{tip:"Tu es en retard : priorise la résistance, split-push prudent et évite les combats 1v2.", item:I(3053,"Gage de Sterak","Bouclier de survie pour tenir en attendant ton retour")},
+              ahead:{tip:"Tu es en avance : engage tes duels, prends la lane adverse en 1v1 et pousse ton avantage en objectifs.", item:I(3071,"Couperet noir","Maximise tes dégâts pour finir les fights plus vite")} },
+  tank:     { behind:{tip:"Tu es en retard : protège ton carry avant tout, ne t'engage pas seul en avant des lignes.", item:I(3083,"Armure de Warmog","Régénère ton volume de vie entre les escarmouches")},
+              ahead:{tip:"Tu es en avance : initie les fights, ton équipe peut suivre ton engage sans risque.", item:I(3068,"Cape solaire","Dégâts de zone qui accélèrent la fin de game")} },
+  support:  { behind:{tip:"Tu es en retard : garde tes sorts défensifs pour ton carry, ne prends aucun risque de vision seul.", item:I(3222,"Bénédiction de Mikael","Cleanse le CC qui condamnerait ton carry")},
+              ahead:{tip:"Tu es en avance : engage les picks avec ta jungle, roam sur les autres lanes pour étendre l'avantage.", item:I(2065,"Rêverie de Shurelya","Vitesse d'équipe pour multiplier les engages")} }
+};
+
+function stateBlock(cls,gameState){
+  if(gameState==="even") return {tip:"Partie équilibrée : suis ton cœur de build standard et adapte-toi aux fights.",item:null};
+  const p = (STATE_PLAN[cls]||STATE_PLAN.fighter)[gameState];
+  return p;
+}
+
 function makeBuild(cls,ctx){
-  const {pctAd,pctAp,tanks,heal,burst,me}=ctx;
+  const {pctAd,pctAp,tanks,heal,burst,me,gameState}=ctx;
   let core=[],boots=[],situ=[];
 
   if(cls==="adc"){
@@ -470,7 +528,14 @@ function makeBuild(cls,ctx){
     situ.push(I(3504,"Encensoir ardent","Buff tes DPS s'ils sont hypercarry"));
   }
 
-  return {core,boots,situ:situ.slice(0,4)};
+  const sb = stateBlock(cls,gameState);
+  if(sb.item){
+    /* évite le doublon si l'objet est déjà présent, sinon le place en tête du situationnel */
+    const already = core.some(i=>i.id===sb.item.id) || situ.some(i=>i.id===sb.item.id);
+    if(!already) situ.unshift(sb.item);
+  }
+
+  return {core,boots,situ:situ.slice(0,5),stateTip:`<b>${gameState==="behind"?"En retard":gameState==="ahead"?"En avance":"Neutre"}</b> — ${sb.tip}`};
 }
 
 function renderItems(elId,items){
