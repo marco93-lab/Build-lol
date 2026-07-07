@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Forge Hextech — Analyse de compo & build LoL</title>
+<meta name="description" content="Choisis ton champion, entre la compo adverse, obtiens le meilleur build adapté au dernier patch.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0A1428;
+  --panel:#0E1B2E;
+  --panel2:#122338;
+  --gold:#C8AA6E;
+  --gold-dim:#785A28;
+  --ivory:#F0E6D2;
+  --muted:#8AA3B8;
+  --hex:#0AC8B9;
+  --threat:#E84057;
+  --ap:#7B6CF6;
+  --ad:#E8A33D;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  background:var(--bg);
+  color:var(--ivory);
+  font-family:'Outfit',sans-serif;
+  font-weight:300;
+  min-height:100vh;
+  padding-bottom:60px;
+  background-image:radial-gradient(ellipse 80% 40% at 50% -5%, rgba(10,200,185,.07), transparent),
+                   radial-gradient(ellipse 60% 30% at 50% 105%, rgba(200,170,110,.05), transparent);
+}
+.wrap{max-width:680px;margin:0 auto;padding:0 16px}
+
+/* ---------- header ---------- */
+header{padding:28px 0 18px;text-align:center}
+.eyebrow{font-size:11px;letter-spacing:.32em;text-transform:uppercase;color:var(--hex);margin-bottom:8px}
+h1{font-family:'Cinzel',serif;font-weight:700;font-size:clamp(26px,7vw,38px);line-height:1.1;color:var(--ivory)}
+h1 em{font-style:normal;color:var(--gold)}
+.patch{margin-top:10px;font-size:12px;color:var(--muted)}
+.patch b{color:var(--gold);font-weight:500}
+
+/* ---------- slots ---------- */
+.slots-block{margin-top:14px}
+.slot-label{font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--muted);margin:14px 0 8px}
+.slot-label.enemy{color:var(--threat)}
+.slots{display:flex;gap:10px;flex-wrap:wrap}
+.slot{
+  width:64px;height:64px;border-radius:6px;position:relative;cursor:pointer;
+  background:var(--panel);
+  border:1px solid var(--gold-dim);
+  display:flex;align-items:center;justify-content:center;
+  transition:border-color .15s, box-shadow .15s;
+}
+.slot.enemy-slot{border-color:#5a2a33}
+.slot.active{border-color:var(--hex);box-shadow:0 0 0 2px rgba(10,200,185,.35)}
+.slot img{width:100%;height:100%;border-radius:5px;object-fit:cover;display:block}
+.slot .plus{color:var(--gold-dim);font-size:24px;font-weight:300;line-height:1}
+.slot.enemy-slot .plus{color:#5a2a33}
+.slot .clear{
+  position:absolute;top:-7px;right:-7px;width:20px;height:20px;border-radius:50%;
+  background:var(--panel2);border:1px solid var(--gold-dim);color:var(--muted);
+  font-size:12px;line-height:18px;text-align:center;display:none;
+}
+.slot.filled .clear{display:block}
+.slot-hint{font-size:12px;color:var(--muted);margin-top:10px}
+.slot-hint b{color:var(--hex);font-weight:500}
+
+/* ---------- picker ---------- */
+.picker{margin-top:16px;display:none}
+.picker.open{display:block}
+.search{
+  width:100%;padding:13px 14px;border-radius:6px;font-size:16px;
+  background:var(--panel);border:1px solid var(--gold-dim);color:var(--ivory);
+  font-family:'Outfit',sans-serif;
+}
+.search:focus{outline:none;border-color:var(--gold)}
+.champ-grid{
+  margin-top:12px;display:grid;grid-template-columns:repeat(auto-fill,minmax(58px,1fr));
+  gap:8px;max-height:300px;overflow-y:auto;padding:4px;
+  border:1px solid rgba(200,170,110,.15);border-radius:8px;background:rgba(14,27,46,.5);
+}
+.champ{cursor:pointer;text-align:center}
+.champ img{width:100%;border-radius:5px;border:1px solid transparent;display:block}
+.champ:active img{border-color:var(--hex)}
+.champ span{display:block;font-size:9px;color:var(--muted);margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* ---------- CTA ---------- */
+.cta{
+  margin-top:22px;width:100%;padding:16px;border-radius:6px;cursor:pointer;
+  font-family:'Cinzel',serif;font-weight:700;font-size:16px;letter-spacing:.08em;
+  color:var(--bg);background:linear-gradient(180deg,#E8D5A3,var(--gold) 55%,#9C7A3C);
+  border:1px solid #E8D5A3;
+  transition:opacity .15s;
+}
+.cta:disabled{opacity:.35;cursor:default}
+
+/* ---------- résultats ---------- */
+#results{display:none;margin-top:30px}
+.section-title{
+  font-family:'Cinzel',serif;font-weight:500;font-size:15px;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--gold);
+  display:flex;align-items:center;gap:12px;margin:26px 0 14px;
+}
+.section-title::before,.section-title::after{content:"";height:1px;flex:1;background:linear-gradient(90deg,transparent,var(--gold-dim))}
+.section-title::after{background:linear-gradient(90deg,var(--gold-dim),transparent)}
+
+/* jauge signature */
+.gauge-card{background:var(--panel);border:1px solid var(--gold-dim);border-radius:8px;padding:18px 16px}
+.gauge-heads{display:flex;justify-content:space-between;font-size:12px;letter-spacing:.14em;text-transform:uppercase;margin-bottom:8px}
+.gauge-heads .l{color:var(--ad)} .gauge-heads .r{color:var(--ap)}
+.gauge{height:14px;border-radius:7px;overflow:hidden;display:flex;border:1px solid rgba(240,230,210,.15)}
+.gauge .ad{background:linear-gradient(180deg,#F2B95C,var(--ad));transition:width .8s ease}
+.gauge .ap{background:linear-gradient(180deg,#948AF8,var(--ap));flex:1;transition:width .8s ease}
+.gauge-pct{display:flex;justify-content:space-between;font-size:13px;margin-top:6px;color:var(--muted)}
+.gauge-pct b{color:var(--ivory);font-weight:500}
+.alerts{margin-top:14px;display:flex;flex-direction:column;gap:8px}
+.alert{display:flex;gap:10px;align-items:flex-start;font-size:14px;line-height:1.45;color:var(--ivory)}
+.alert .dot{flex:none;width:8px;height:8px;border-radius:2px;transform:rotate(45deg);margin-top:6px;background:var(--hex)}
+.alert.warn .dot{background:var(--threat)}
+.alert b{font-weight:500;color:var(--gold)}
+
+/* items */
+.item-group{background:var(--panel);border:1px solid var(--gold-dim);border-radius:8px;padding:16px;margin-bottom:14px}
+.item-group h3{font-size:12px;letter-spacing:.2em;text-transform:uppercase;font-weight:500;color:var(--hex);margin-bottom:12px}
+.item-group.situ h3{color:var(--threat)}
+.items{display:flex;flex-direction:column;gap:12px}
+.item{display:flex;gap:12px;align-items:center}
+.item .icon{
+  flex:none;width:44px;height:44px;border-radius:5px;border:1px solid var(--gold-dim);
+  background:var(--panel2);display:flex;align-items:center;justify-content:center;
+  font-family:'Cinzel',serif;color:var(--gold);font-size:18px;overflow:hidden;
+}
+.item .icon img{width:100%;height:100%;object-fit:cover}
+.item .txt b{display:block;font-weight:500;font-size:14px;color:var(--ivory)}
+.item .txt span{font-size:12.5px;color:var(--muted);line-height:1.4}
+
+footer{margin-top:34px;text-align:center;font-size:11px;color:var(--muted);line-height:1.6}
+footer a{color:var(--hex);text-decoration:none}
+.loading{text-align:center;padding:40px 0;color:var(--muted);font-size:14px}
+@media (prefers-reduced-motion:reduce){.gauge .ad,.gauge .ap{transition:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="eyebrow">Analyse de draft &middot; Patch en direct</div>
+  <h1>Forge <em>Hextech</em></h1>
+  <div class="patch" id="patchInfo">Chargement des données Riot…</div>
+</header>
+
+<div id="app" style="display:none">
+
+  <div class="slots-block">
+    <div class="slot-label">Mon champion</div>
+    <div class="slots" id="allySlots"></div>
+    <div class="slot-label enemy">Compo adverse</div>
+    <div class="slots" id="enemySlots"></div>
+    <div class="slot-hint">Touche un emplacement puis <b>choisis un champion</b> ci-dessous.</div>
+  </div>
+
+  <div class="picker" id="picker">
+    <input class="search" id="search" type="text" placeholder="Rechercher un champion…" autocomplete="off">
+    <div class="champ-grid" id="champGrid"></div>
+  </div>
+
+  <button class="cta" id="analyzeBtn" disabled>ANALYSER LA COMPO</button>
+
+  <div id="results">
+    <div class="section-title">Menace adverse</div>
+    <div class="gauge-card">
+      <div class="gauge-heads"><span class="l">Dégâts physiques</span><span class="r">Dégâts magiques</span></div>
+      <div class="gauge"><div class="ad" id="gAd" style="width:50%"></div><div class="ap" id="gAp"></div></div>
+      <div class="gauge-pct"><b id="pAd">50%</b><b id="pAp">50%</b></div>
+      <div class="alerts" id="alerts"></div>
+    </div>
+
+    <div class="section-title">Build recommandé</div>
+    <div class="item-group"><h3>Cœur de build</h3><div class="items" id="coreItems"></div></div>
+    <div class="item-group"><h3>Bottes</h3><div class="items" id="bootItems"></div></div>
+    <div class="item-group situ"><h3>Situationnel vs cette compo</h3><div class="items" id="situItems"></div></div>
+  </div>
+
+</div>
+<div class="loading" id="loading">Connexion à Data Dragon (Riot)…</div>
+
+<footer>
+  Données champions & icônes : Riot Data Dragon (dernier patch, chargé en direct).<br>
+  Recommandations : moteur d'itémisation adaptatif selon la compo adverse.
+</footer>
+</div>
+
+<script>
+/* ================= DATA DRAGON ================= */
+let VERSION="", CHAMPS={}, CHAMP_LIST=[];
+const IMG = {
+  champ: id => `https://ddragon.leagueoflegends.com/cdn/${VERSION}/img/champion/${id}.png`,
+  item:  id => `https://ddragon.leagueoflegends.com/cdn/${VERSION}/img/item/${id}.png`
+};
+
+/* Champions avec soins/omnivamp notables (déclenche l'anti-heal) */
+const HEALERS = new Set(["Aatrox","Soraka","Vladimir","Sylas","DrMundo","Swain","Yuumi","Sona","Nami","Warwick","Fiddlesticks","Maokai","Illaoi","Kayn","Briar","Zac","Nidalee","Renata","Seraphine","Ivern","Rakan","Kindred","Rengar","Trundle","Volibear","Yorick","Naafiri","Samira","Sett","Olaf","Vayne","Yone","Gwen","Mordekaiser","AurelionSol","Cassiopeia","Milio","KSante"]);
+
+/* Champions à burst élevé (déclenche Zhonya/GA/Edge of Night) */
+const BURSTERS = new Set(["Zed","Talon","Khazix","Rengar","Naafiri","Qiyana","Leblanc","Syndra","Veigar","Annie","Fizz","Akali","Evelynn","Diana","Kassadin","Nocturne","Belveth","Briar","Shaco"]);
+
+async function boot(){
+  try{
+    const versions = await (await fetch("https://ddragon.leagueoflegends.com/api/versions.json")).json();
+    VERSION = versions[0];
+    const data = await (await fetch(`https://ddragon.leagueoflegends.com/cdn/${VERSION}/data/fr_FR/champion.json`)).json();
+    CHAMPS = data.data;
+    CHAMP_LIST = Object.values(CHAMPS).sort((a,b)=>a.name.localeCompare(b.name,'fr'));
+    document.getElementById("patchInfo").innerHTML = `Patch <b>${VERSION}</b> &middot; ${CHAMP_LIST.length} champions chargés`;
+    document.getElementById("loading").style.display="none";
+    document.getElementById("app").style.display="block";
+    buildUI();
+  }catch(e){
+    document.getElementById("loading").textContent = "Impossible de charger les données Riot. Vérifie ta connexion puis recharge la page.";
+  }
+}
+
+/* ================= UI : SLOTS & PICKER ================= */
+const state = { ally:null, enemies:[null,null,null,null,null], activeSlot:null };
+
+function buildUI(){
+  const allyWrap = document.getElementById("allySlots");
+  allyWrap.appendChild(makeSlot("ally",0,false));
+  const enWrap = document.getElementById("enemySlots");
+  for(let i=0;i<5;i++) enWrap.appendChild(makeSlot("enemy",i,true));
+  renderGrid(CHAMP_LIST);
+  document.getElementById("search").addEventListener("input",e=>{
+    const q=e.target.value.trim().toLowerCase();
+    renderGrid(CHAMP_LIST.filter(c=>c.name.toLowerCase().includes(q)||c.id.toLowerCase().includes(q)));
+  });
+  document.getElementById("analyzeBtn").addEventListener("click",analyze);
+}
+
+function makeSlot(type,idx,isEnemy){
+  const d=document.createElement("div");
+  d.className="slot"+(isEnemy?" enemy-slot":"");
+  d.dataset.type=type; d.dataset.idx=idx;
+  d.innerHTML='<span class="plus">+</span><span class="clear">×</span>';
+  d.addEventListener("click",e=>{
+    if(e.target.classList.contains("clear")){ setSlot(type,idx,null); e.stopPropagation(); return; }
+    document.querySelectorAll(".slot").forEach(s=>s.classList.remove("active"));
+    d.classList.add("active");
+    state.activeSlot={type,idx};
+    document.getElementById("picker").classList.add("open");
+    document.getElementById("search").focus({preventScroll:true});
+  });
+  return d;
+}
+
+function renderGrid(list){
+  const g=document.getElementById("champGrid");
+  g.innerHTML="";
+  list.forEach(c=>{
+    const el=document.createElement("div");
+    el.className="champ";
+    el.innerHTML=`<img loading="lazy" src="${IMG.champ(c.id)}" alt="${c.name}"><span>${c.name}</span>`;
+    el.addEventListener("click",()=>{
+      if(!state.activeSlot) return;
+      setSlot(state.activeSlot.type,state.activeSlot.idx,c.id);
+      autoAdvance();
+    });
+    g.appendChild(el);
+  });
+}
+
+function setSlot(type,idx,champId){
+  if(type==="ally") state.ally=champId; else state.enemies[idx]=champId;
+  const slot=document.querySelector(`.slot[data-type="${type}"][data-idx="${idx}"]`);
+  if(champId){
+    slot.classList.add("filled");
+    slot.innerHTML=`<img src="${IMG.champ(champId)}" alt=""><span class="clear">×</span>`;
+    slot.querySelector(".clear").addEventListener("click",e=>{e.stopPropagation();setSlot(type,idx,null);});
+  }else{
+    slot.classList.remove("filled");
+    slot.innerHTML='<span class="plus">+</span><span class="clear">×</span>';
+  }
+  updateCta();
+}
+
+function autoAdvance(){
+  /* passe automatiquement au prochain slot vide */
+  document.querySelectorAll(".slot").forEach(s=>s.classList.remove("active"));
+  if(!state.ally){ state.activeSlot={type:"ally",idx:0}; }
+  else{
+    const next=state.enemies.findIndex(e=>!e);
+    if(next===-1){ state.activeSlot=null; document.getElementById("picker").classList.remove("open"); updateCta(); return; }
+    state.activeSlot={type:"enemy",idx:next};
+  }
+  const s=document.querySelector(`.slot[data-type="${state.activeSlot.type}"][data-idx="${state.activeSlot.idx}"]`);
+  if(s) s.classList.add("active");
+  document.getElementById("search").value=""; renderGrid(CHAMP_LIST);
+  updateCta();
+}
+
+function updateCta(){
+  const nbEnemies=state.enemies.filter(Boolean).length;
+  document.getElementById("analyzeBtn").disabled = !(state.ally && nbEnemies>=1);
+}
+
+/* ================= MOTEUR D'ANALYSE ================= */
+function damageType(c){
+  /* scores Riot 0-10 : attack vs magic */
+  const a=c.info.attack, m=c.info.magic;
+  if(m>=a+2) return "AP";
+  if(a>=m+2) return "AD";
+  return m>a ? "AP" : "AD";
+}
+
+function analyze(){
+  const enemies = state.enemies.filter(Boolean).map(id=>CHAMPS[id]);
+  const me = CHAMPS[state.ally];
+
+  let ad=0, ap=0, tanks=0, heal=false, burst=false, cc=0;
+  enemies.forEach(c=>{
+    damageType(c)==="AP" ? ap++ : ad++;
+    if(c.tags.includes("Tank") || c.info.defense>=8) tanks++;
+    if(HEALERS.has(c.id)) heal=true;
+    if(BURSTERS.has(c.id)) burst=true;
+    if(c.tags.includes("Tank")||c.tags.includes("Support")) cc++;
+  });
+  const total=enemies.length;
+  const pctAd=Math.round(ad/total*100), pctAp=100-pctAd;
+
+  /* jauge */
+  document.getElementById("gAd").style.width=pctAd+"%";
+  document.getElementById("pAd").textContent=pctAd+"% AD ("+ad+")";
+  document.getElementById("pAp").textContent=pctAp+"% AP ("+ap+")";
+
+  /* alertes */
+  const alerts=[];
+  if(pctAd>=70) alerts.push({warn:true,txt:"<b>Compo full AD</b> — l'armure est ultra rentable, l'ennemi ne peut pas te percer autrement."});
+  if(pctAp>=70) alerts.push({warn:true,txt:"<b>Compo full AP</b> — priorité résistance magique."});
+  if(tanks>=2) alerts.push({warn:true,txt:`<b>${tanks} tanks détectés</b> — il te faut de la pénétration ou des dégâts en % de PV.`});
+  if(heal) alerts.push({warn:true,txt:"<b>Soins importants en face</b> — un objet anti-heal (Blessures graves) est obligatoire."});
+  if(burst) alerts.push({warn:true,txt:"<b>Assassin / burst détecté</b> — prévois un objet de survie (Zhonya, Ange gardien, Voile…)."});
+  if(cc>=3) alerts.push({warn:false,txt:`<b>Beaucoup de CC</b> (${cc} sources probables) — Mercures ou Nettoyage à envisager.`});
+  if(!alerts.length) alerts.push({warn:false,txt:"Compo équilibrée — suis ton cœur de build standard."});
+  document.getElementById("alerts").innerHTML = alerts.map(a=>`<div class="alert${a.warn?' warn':''}"><span class="dot"></span><div>${a.txt}</div></div>`).join("");
+
+  /* build */
+  const cls = classOf(me);
+  const build = makeBuild(cls,{pctAd,pctAp,tanks,heal,burst,cc,me});
+  renderItems("coreItems",build.core);
+  renderItems("bootItems",build.boots);
+  renderItems("situItems",build.situ);
+
+  const r=document.getElementById("results");
+  r.style.display="block";
+  r.scrollIntoView({behavior:"smooth",block:"start"});
+}
+
+function classOf(c){
+  const t=c.tags;
+  if(t.includes("Marksman")) return "adc";
+  if(t.includes("Assassin")) return c.info.magic>c.info.attack ? "apassassin" : "assassin";
+  if(t.includes("Mage")) return "mage";
+  if(t.includes("Tank")) return "tank";
+  if(t.includes("Support")) return "support";
+  if(t.includes("Fighter")) return "fighter";
+  return "fighter";
+}
+
+/* item helper : {id, nom, raison} */
+const I=(id,n,r)=>({id,n,r});
+
+function makeBuild(cls,ctx){
+  const {pctAd,pctAp,tanks,heal,burst,me}=ctx;
+  let core=[],boots=[],situ=[];
+
+  if(cls==="adc"){
+    core=[I(6672,"Massacreur de Kraken","Dégâts on-hit, excellent en 1er objet DPS"),
+          I(3031,"Lame d'infini","Pic de puissance critique"),
+          I(3094,"Canon ultrarapide","Portée + kite en sécurité")];
+    boots=[ pctAd>=60?I(3047,"Jambières de Plaques d'acier","Face à une compo à dominante AD"):
+            pctAp>=60?I(3111,"Sabatons de Mercure","Face à l'AP et aux CC"):
+            I(3006,"Jambières du Berserker","Vitesse d'attaque standard")];
+    if(tanks>=2) situ.push(I(3036,"Rappel du Seigneur Dominik","% PV + pénétration d'armure vs tanks"));
+    if(heal) situ.push(I(3033,"Rappel mortel","Blessures graves intégrées à ta pénétration"));
+    if(pctAp>=50) situ.push(I(3091,"Fin de l'esprit","RM + dégâts on-hit vs compos AP"));
+    if(burst) situ.push(I(3026,"Ange gardien","Seconde vie contre le burst"));
+    if(!situ.length) situ.push(I(3072,"Soif-de-sang","Sustain et bouclier pour les combats longs"));
+  }
+
+  else if(cls==="mage"){
+    core=[I(6655,"Compagnon de Luden","Burst + mana, cœur de mage standard"),
+          I(4645,"Flamme d'ombre","Pénétration magique vs cibles peu blindées"),
+          I(3089,"Coiffe de Rabadon","Multiplicateur d'AP final")];
+    boots=[ pctAd>=60?I(3047,"Jambières de Plaques d'acier","Face à une compo AD"):
+            I(3020,"Chaussures du Sorcier","Pénétration magique standard")];
+    if(tanks>=2) situ.push(I(3135,"Bâton du Vide","% de pénétration magique obligatoire vs tanks"));
+    if(tanks>=2) situ.push(I(6653,"Supplice de Liandry","Brûlure en % PV vs compos tanky"));
+    if(heal) situ.push(I(3165,"Morellonomicon","Blessures graves version AP"));
+    if(burst||pctAd>=60) situ.push(I(3157,"Sablier de Zhonya","Stase contre le burst AD"));
+    if(pctAp>=60) situ.push(I(3102,"Voile de la banshee","Bouclier anti-sort vs compos AP"));
+    if(!situ.length) situ.push(I(4629,"Force cosmique","Mobilité et DPS soutenu"));
+  }
+
+  else if(cls==="assassin"){
+    core=[I(6692,"Éclipse","Bouclier + pénétration, très polyvalent"),
+          I(6676,"Le Collectionneur","Exécution + or bonus"),
+          I(3142,"Lame spectrale de Youmuu","Roam et burst de mobilité")];
+    boots=[ pctAp>=60?I(3111,"Sabatons de Mercure","Face à l'AP/CC"):
+            I(3158,"Bottes ioniennes de la Lucidité","CDR pour enchaîner les combos")];
+    if(tanks>=2) situ.push(I(6695,"Rancune de Serylda","% pénétration d'armure + ralentissement"));
+    if(heal) situ.push(I(3011,"Tronçonneuse chimique","Anti-heal AD accessible"));
+    if(pctAp>=50) situ.push(I(3156,"Gueule de Malmortius","Bouclier magique vs burst AP"));
+    if(burst) situ.push(I(3814,"Pacte de l'ombre","Bouclier anti-sort pour engager en premier"));
+    if(!situ.length) situ.push(I(6333,"Danse de la mort","Survie prolongée en combat"));
+  }
+
+  else if(cls==="apassassin"){
+    core=[I(3100,"Lame du roi déchu — Lich Bane","Burst via auto renforcée"),
+          I(4645,"Flamme d'ombre","Pénétration + crit sur cibles basses"),
+          I(3089,"Coiffe de Rabadon","Scaling AP maximal")];
+    boots=[ pctAd>=60?I(3047,"Jambières de Plaques d'acier","Vs compo AD"):
+            I(3020,"Chaussures du Sorcier","Pénétration magique")];
+    if(tanks>=2) situ.push(I(3135,"Bâton du Vide","% pénétration magique vs tanks"));
+    if(heal) situ.push(I(3165,"Morellonomicon","Blessures graves"));
+    if(pctAd>=50||burst) situ.push(I(3157,"Sablier de Zhonya","Stase, quasi obligatoire vs burst AD"));
+    if(pctAp>=60) situ.push(I(3102,"Voile de la banshee","Anti-sort vs AP"));
+    if(!situ.length) situ.push(I(4629,"Force cosmique","Mobilité pour tes combos"));
+  }
+
+  else if(cls==="fighter"){
+    core=[I(3078,"Force de la trinité","Spike de puissance polyvalent"),
+          I(3071,"Couperet noir","Brise-armure + PV, parfait vs frontline"),
+          I(3053,"Gage de Sterak","Bouclier de survie en plein combat")];
+    boots=[ pctAd>=60?I(3047,"Jambières de Plaques d'acier","Vs compo AD"):
+            pctAp>=60?I(3111,"Sabatons de Mercure","Vs AP/CC"):
+            I(3047,"Jambières de Plaques d'acier","Choix par défaut solide")];
+    if(tanks>=2) situ.push(I(3153,"Lame du roi déchu","Dégâts en % PV vs tanks"));
+    if(heal) situ.push(I(3011,"Tronçonneuse chimique","Blessures graves AD"));
+    if(pctAp>=50) situ.push(I(3156,"Gueule de Malmortius","RM + bouclier magique"));
+    if(pctAd>=60) situ.push(I(6333,"Danse de la mort","Étale les dégâts physiques reçus"));
+    if(!situ.length) situ.push(I(3026,"Ange gardien","Sécurise ton engage"));
+  }
+
+  else if(cls==="tank"){
+    core=[I(3068,"Cape solaire","Waveclear + dégâts de zone en tankant"),
+          I(6665,"Jak'Sho, le Protéiforme","Résistances croissantes en combat long"),
+          I(3083,"Armure de Warmog","Régénération massive hors combat")];
+    boots=[ pctAd>=60?I(3047,"Jambières de Plaques d'acier","Vs compo AD"):
+            I(3111,"Sabatons de Mercure","Vs AP et CC")];
+    if(pctAd>=50&&heal) situ.push(I(3075,"Cotte épineuse","Renvoi de dégâts + Blessures graves vs AD lifesteal"));
+    else if(heal) situ.push(I(3075,"Cotte épineuse","Applique Blessures graves aux attaquants"));
+    if(pctAd>=50) situ.push(I(3143,"Présage de Randuin","Réduit les critiques et l'attack speed"));
+    if(pctAp>=50) situ.push(I(4401,"Force de la nature","RM + vitesse, la référence anti-AP"));
+    if(pctAp>=50) situ.push(I(3065,"Visage spirituel","Amplifie tes soins et boucliers"));
+    if(!situ.length) situ.push(I(3110,"Cœur gelé","Anti-DPS et mana"));
+  }
+
+  else{ /* support */
+    core=[I(3190,"Médaillon de l'Iron Solari","Bouclier d'équipe contre l'engage"),
+          I(3107,"Rédemption","Soin de zone global en teamfight"),
+          I(2065,"Rêverie de Shurelya","Engage/désengage pour toute l'équipe")];
+    boots=[ pctAp>=60?I(3111,"Sabatons de Mercure","Vs AP/CC"):
+            pctAd>=60?I(3047,"Jambières de Plaques d'acier","Vs compo AD"):
+            I(3158,"Bottes ioniennes de la Lucidité","CDR pour tes sorts et objets")];
+    if(cc>=2||burst) situ.push(I(3222,"Bénédiction de Mikael","Cleanse un CC clé sur ton carry"));
+    if(heal) situ.push(I(3165,"Morellonomicon","Blessures graves pour ton équipe"));
+    situ.push(I(3504,"Encensoir ardent","Buff tes DPS s'ils sont hypercarry"));
+  }
+
+  return {core,boots,situ:situ.slice(0,4)};
+}
+
+function renderItems(elId,items){
+  document.getElementById(elId).innerHTML = items.map(it=>`
+    <div class="item">
+      <div class="icon"><img src="${IMG.item(it.id)}" alt="" onerror="this.remove();this.parentNode.textContent='◆'"></div>
+      <div class="txt"><b>${it.n}</b><span>${it.r}</span></div>
+    </div>`).join("");
+}
+
+boot();
+</script>
+</body>
+</html>
