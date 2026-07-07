@@ -258,6 +258,9 @@ const HEALERS = new Set(["Aatrox","Soraka","Vladimir","Sylas","DrMundo","Swain",
 /* Champions à burst élevé (déclenche Zhonya/GA/Edge of Night) */
 const BURSTERS = new Set(["Zed","Talon","Khazix","Rengar","Naafiri","Qiyana","Leblanc","Syndra","Veigar","Annie","Fizz","Akali","Evelynn","Diana","Kassadin","Nocturne","Belveth","Briar","Shaco"]);
 
+/* item helper : {id, nom, raison} — déclaré ici car utilisé par CHAMPION_OVERRIDES ci-dessous */
+const I=(id,n,r)=>({id,n,r});
+
 /* Mages "control / DoT" : dégâts continus sans combo burst, Luden's ne leur va pas */
 const CONTROL_MAGES = new Set(["Malzahar","Cassiopeia","Swain","Anivia","Karthus","Vladimir","Ryze","Brand"]);
 
@@ -521,7 +524,6 @@ function classOf(c,role){
 }
 
 /* item helper : {id, nom, raison} */
-const I=(id,n,r)=>({id,n,r});
 
 /* Conseils + objet prioritaire selon l'état de la game, par classe */
 const STATE_PLAN = {
