@@ -86,6 +86,9 @@ h1 em{font-style:normal;color:var(--gold)}
   background:rgba(200,170,110,.06);border:1px solid var(--gold-dim);border-radius:6px;padding:12px 14px;
 }
 .state-tip b{color:var(--gold);font-weight:500}
+.role-toggle{flex-wrap:wrap}
+.role-btn{flex:1 1 18%;font-size:11px;padding:10px 2px;letter-spacing:.06em}
+.role-btn.active{border-color:var(--hex);color:var(--ivory);background:rgba(10,200,185,.12)}
 
 /* ---------- picker ---------- */
 .picker{margin-top:16px;display:none}
@@ -155,6 +158,17 @@ h1 em{font-style:normal;color:var(--gold)}
 .item .icon img{width:100%;height:100%;object-fit:cover}
 .item .txt b{display:block;font-weight:500;font-size:14px;color:var(--ivory)}
 .item .txt span{font-size:12.5px;color:var(--muted);line-height:1.4}
+.tier-badge{
+  flex:none;font-family:'Cinzel',serif;font-weight:700;font-size:11px;
+  padding:3px 7px;border-radius:4px;line-height:1.3;letter-spacing:.03em;
+  align-self:flex-start;margin-top:1px;
+}
+.tier-badge.tS{background:rgba(200,170,110,.18);color:var(--gold);border:1px solid var(--gold)}
+.tier-badge.tA{background:rgba(10,200,185,.16);color:var(--hex);border:1px solid var(--hex)}
+.tier-badge.tD{background:rgba(232,163,61,.14);color:var(--ad);border:1px solid var(--ad)}
+.tier-badge.tF{background:rgba(232,64,87,.14);color:var(--threat);border:1px solid var(--threat)}
+.meta-note{font-size:11.5px;color:var(--muted);margin:-4px 0 14px;line-height:1.5}
+.meta-note b{color:var(--gold);font-weight:500}
 
 footer{margin-top:34px;text-align:center;font-size:11px;color:var(--muted);line-height:1.6}
 footer a{color:var(--hex);text-decoration:none}
@@ -186,6 +200,15 @@ footer a{color:var(--hex);text-decoration:none}
       <div class="state-btn active" data-state="even"><b>Neutre</b>Standard</div>
       <div class="state-btn" data-state="ahead"><b>En avance</b>Snowball</div>
     </div>
+
+    <div class="slot-label">Ton rôle <span style="color:var(--muted);text-transform:none;letter-spacing:0">(optionnel)</span></div>
+    <div class="state-toggle role-toggle" id="roleToggle">
+      <div class="state-btn role-btn" data-role="top">TOP</div>
+      <div class="state-btn role-btn" data-role="jungle">JGL</div>
+      <div class="state-btn role-btn" data-role="mid">MID</div>
+      <div class="state-btn role-btn" data-role="adc">ADC</div>
+      <div class="state-btn role-btn" data-role="support">SUPP</div>
+    </div>
   </div>
 
   <div class="picker" id="picker">
@@ -205,6 +228,7 @@ footer a{color:var(--hex);text-decoration:none}
     </div>
 
     <div class="section-title">Build recommandé</div>
+    <div class="meta-note">Pastilles <b>S / A</b> = objet parmi les plus performants du patch 26.13 en ce moment &middot; <b>D / F</b> = objet en méforme, à éviter si une alternative existe.</div>
     <div class="state-tip" id="stateTip"></div>
     <div class="item-group"><h3>Cœur de build</h3><div class="items" id="coreItems"></div></div>
     <div class="item-group"><h3>Bottes</h3><div class="items" id="bootItems"></div></div>
@@ -234,6 +258,21 @@ const HEALERS = new Set(["Aatrox","Soraka","Vladimir","Sylas","DrMundo","Swain",
 /* Champions à burst élevé (déclenche Zhonya/GA/Edge of Night) */
 const BURSTERS = new Set(["Zed","Talon","Khazix","Rengar","Naafiri","Qiyana","Leblanc","Syndra","Veigar","Annie","Fizz","Akali","Evelynn","Diana","Kassadin","Nocturne","Belveth","Briar","Shaco"]);
 
+/* Données d'usage réel patch 26.13 (agrégat de winrate/tier sur parties classées) */
+const ITEM_META = {
+  3026: {tier:"S", wr:60.6},   // Ange gardien
+  3053: {tier:"S", wr:57.1},   // Gage de Sterak
+  3072: {tier:"S", wr:56.9},   // Soif-de-sang
+  6333: {tier:"S", wr:56.7},   // Danse de la mort
+  3036: {tier:"S"},            // Rappel du Seigneur Dominik (populaire, top pick rate S-tier)
+  3089: {tier:"A", wr:55.9},   // Coiffe de Rabadon
+  6665: {tier:"A", wr:55.3},   // Jak'Sho, le Protéiforme
+  3158: {tier:"D", wr:50.4},   // Bottes ioniennes de la Lucidité
+  3143: {tier:"D", wr:50.6},   // Présage de Randuin
+  3047: {tier:"D"},            // Jambières de Plaques d'acier (populaires mais en méforme)
+  3100: {tier:"F", wr:48.4}    // Lame du roi déchu — Lich Bane
+};
+
 async function boot(){
   try{
     const versions = await (await fetch("https://ddragon.leagueoflegends.com/api/versions.json")).json();
@@ -251,7 +290,7 @@ async function boot(){
 }
 
 /* ================= UI : SLOTS & PICKER ================= */
-const state = { ally:null, enemies:[null,null,null,null,null], activeSlot:null, gameState:"even" };
+const state = { ally:null, enemies:[null,null,null,null,null], activeSlot:null, gameState:"even", role:null };
 
 function buildUI(){
   const allyWrap = document.getElementById("allySlots");
@@ -259,11 +298,19 @@ function buildUI(){
   const enWrap = document.getElementById("enemySlots");
   for(let i=0;i<5;i++) enWrap.appendChild(makeSlot("enemy",i,true));
   renderGrid(CHAMP_LIST);
-  document.querySelectorAll(".state-btn").forEach(btn=>{
+  document.querySelectorAll("#stateToggle .state-btn").forEach(btn=>{
     btn.addEventListener("click",()=>{
-      document.querySelectorAll(".state-btn").forEach(b=>b.classList.remove("active"));
+      document.querySelectorAll("#stateToggle .state-btn").forEach(b=>b.classList.remove("active"));
       btn.classList.add("active");
       state.gameState = btn.dataset.state;
+    });
+  });
+  document.querySelectorAll("#roleToggle .role-btn").forEach(btn=>{
+    btn.addEventListener("click",()=>{
+      const already = btn.classList.contains("active");
+      document.querySelectorAll("#roleToggle .role-btn").forEach(b=>b.classList.remove("active"));
+      if(already){ state.role=null; }
+      else{ btn.classList.add("active"); state.role=btn.dataset.role; }
     });
   });
   document.getElementById("search").addEventListener("input",e=>{
@@ -380,7 +427,7 @@ function analyze(){
   document.getElementById("alerts").innerHTML = alerts.map(a=>`<div class="alert${a.warn?' warn':''}"><span class="dot"></span><div>${a.txt}</div></div>`).join("");
 
   /* build */
-  const cls = classOf(me);
+  const cls = classOf(me,state.role);
   const build = makeBuild(cls,{pctAd,pctAp,tanks,heal,burst,cc,me,gameState:state.gameState});
   renderItems("coreItems",build.core);
   renderItems("bootItems",build.boots);
@@ -392,7 +439,9 @@ function analyze(){
   r.scrollIntoView({behavior:"smooth",block:"start"});
 }
 
-function classOf(c){
+function classOf(c,role){
+  if(role==="support") return "support";
+  if(role==="adc") return "adc";
   const t=c.tags;
   if(t.includes("Marksman")) return "adc";
   if(t.includes("Assassin")) return c.info.magic>c.info.attack ? "apassassin" : "assassin";
@@ -539,11 +588,16 @@ function makeBuild(cls,ctx){
 }
 
 function renderItems(elId,items){
-  document.getElementById(elId).innerHTML = items.map(it=>`
+  document.getElementById(elId).innerHTML = items.map(it=>{
+    const meta = ITEM_META[it.id];
+    const badge = meta ? `<span class="tier-badge t${meta.tier}">${meta.tier}${meta.wr?(' '+meta.wr+'%'):''}</span>` : "";
+    return `
     <div class="item">
       <div class="icon"><img src="${IMG.item(it.id)}" alt="" onerror="this.remove();this.parentNode.textContent='◆'"></div>
       <div class="txt"><b>${it.n}</b><span>${it.r}</span></div>
-    </div>`).join("");
+      ${badge}
+    </div>`;
+  }).join("");
 }
 
 boot();
